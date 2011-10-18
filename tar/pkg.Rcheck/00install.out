@@ -1,0 +1,15 @@
+* installing *source* package 'nis' ...
+** R
+** preparing package for lazy loading
+** help
+Warning: c:/Users/jthetzel/Research/nis/pkg/man/generateSQL.Rd:56: unexpected section header '\description'
+Warning: c:/Users/jthetzel/Research/nis/pkg/man/generateSQL.Rd:62: unexpected section header '\section'
+Warning: c:/Users/jthetzel/Research/nis/pkg/man/generateSQL.Rd:95: unexpected section header '\examples'
+Warning: c:/Users/jthetzel/Research/nis/pkg/man/generateSQL.Rd:124: unexpected section header '\references'
+Warning: c:/Users/jthetzel/Research/nis/pkg/man/generateSQL.Rd:128: unexpected END_OF_INPUT '
+'
+*** installing help indices
+** building package indices ...
+** testing if installed package can be loaded
+
+* DONE (nis)

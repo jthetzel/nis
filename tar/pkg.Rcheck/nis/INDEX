@@ -1,0 +1,4 @@
+generateSQL             Generate SQL code to convert NIS ascii flat
+                        files to SQL database
+nis-package             Tools for working with data from the Nationwide
+                        Inpatient Sample

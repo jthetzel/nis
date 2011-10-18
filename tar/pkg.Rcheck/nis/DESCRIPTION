@@ -1,0 +1,20 @@
+Package: nis
+Version: 0.1-0
+Date: 2011-10-18
+Title: Nationwide Inpatient Sample tools for R
+Authors@R: person(given = c("Jeremy", "Thoms"), family = "Thoms", email
+        = "jthetzel@gmail.com")
+Author: Jeremy T. Hetzel <jthetzel@gmail.com>
+Maintainer: Jeremy T. Hetzel <jthetzel@gmail.com>
+Depends: R (>= 2.12.0)
+Description: The nis package provides tools for working
+    with data from the Nationwide Inpatient Sample.
+    Included is a convenience function to generate SQL code
+    for importing the NIS flat files into a MySQL database.
+License: GPL-3
+URL: http://code.google.com/p/nis
+BugReports: http://code.google.com/p/nis
+LazyLoad: yes
+LazyData: yes
+Collate: 'generateSQL.R'
+Built: R 2.14.0; ; 2011-10-18 18:24:58 UTC; windows
