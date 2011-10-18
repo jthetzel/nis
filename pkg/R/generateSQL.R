@@ -57,8 +57,9 @@ NULL
 #'				"2008" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2008_Core.TXT',
 #'				"2009" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2009_Core.TXT'
 #'			)}
-#' @example examples/generateSQL.R
-#' @example 
+#' @example examples/generateSQL.R 
+#' @references http://www.hcup-us.ahrq.gov/nisoverview.jsp
+#' @export
 generateSQL <- function(years, files, type, remove.capitalization = T, 
 	db.table = NULL, layouts.uri = NULL, old = NULL, new = NULL)
 {
@@ -431,9 +432,3 @@ makeTableQuery <- function(layouts, db.table)
 	result <- paste("create table ", db.table, " (\n", result, "\n);", sep="")
 	return(result)
 }
-
-
-
-
-
-

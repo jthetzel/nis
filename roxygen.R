@@ -1,5 +1,6 @@
-package.dir <- "~/Research/nis/"
-roxygen.dir <- "~/Research/nis/pkg2/"
-#roxygen.dir <- package.dir
+require(roxygen2)
 
-roxygenize(package.dir = package.dir, roxygen.dir = roxygen.dir)
+setwd("c:/Users/jthetzel")
+package.dir <- "Research/nis/pkg"
+
+roxygenize(package.dir = package.dir)
