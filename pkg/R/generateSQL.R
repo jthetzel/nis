@@ -1,0 +1,387 @@
+###############################
+## Use NIS layout files from ##
+## HCUP to contruct MySQL    ##
+## data load queries         ##
+## and creat table queries   ##
+## jthetzel@gmail.com        ##
+###############################
+
+## Generate SQL code to convert NIS ascii flat files to SQL database	
+generateSQL <- function(years, files, type, remove.capitalization = T, 
+	db.table = NULL, layouts.uri = NULL, old = NULL, new = NULL)
+{
+	## If old or new are not specified, use default
+	## KEY is changed to KEYID because KEY is a reserved name in MySQL
+	if (is.null(old) | is.null(new))
+	{
+		if (type == "core")
+		{
+			old <- c("KEY", "ZIPInc_Qrtl")
+			new <- c("KEYID","ZIPINC_QRTL")
+		} else if (type == "hospitals")
+		{
+			old <- c()
+			new <- c()
+		}  else if (type == "severity")
+		{
+			old <- c("KEY")
+			new <- c("KEYID")
+		}  else if (type == "groups")
+		{
+			old <- c("KEY")
+			new <- c("KEYID")
+		}
+	}
+	
+	## If db.table is not specified, use default
+	if (is.null(db.table))
+	{
+		if (type == "core")
+		{
+			db.table <- "core"
+		} else if (type == "hospitals")
+		{
+			db.table <- "hospitals"
+		} else if (type == "severity")
+		{
+			db.table <- "severity"
+		} else if (type == "groups")
+		{
+			db.table <- "groups"
+		}
+	}
+	
+	## Get layouts from the uri
+	layouts <- getLayouts(layouts.uri = layouts.uri, years = years, type = type)
+	
+	## Find variables from past years not included in most recent year,
+	## and add them to most recent year 
+	layouts <- addVariables(layouts = layouts, years = years)
+	
+	## Replace old variable names with new variable names
+	layouts <- renameVariables(layouts = layouts, old = old, new = new)
+	
+	## Merge layouts into single table
+	layouts <- mergeLayouts(layouts)
+	
+	## Remove duplicated variables and, optionally, capitalization 
+	layouts <- cleanLayouts(layouts, remove.capitalization = remove.capitalization)
+	
+	## Generate create table SQL
+	createTable <- makeTableQuery(layouts, db.table = db.table)
+	
+	## Generate data infile SQL
+	loadData <- makeInfileQueries(years = years, files = files, db.table = db.table, layouts = layouts)
+	
+	## Return result
+	result <- list(createTable = createTable, loadData = loadData)
+	return(result)	
+}
+	
+	
+## Get layout files
+getLayouts <- function(layouts.uri = NULL, years, type)
+{
+	## If layouts.uri is not specified, use default uri
+	if (is.null(layouts.uri))
+	{
+		if (type == "core")
+		{
+			layouts.uri <- list(
+				"1998" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_1998_COREv2.TXT',
+				"1999" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_1999_COREv2.TXT',
+				"2000" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_2000_CORE.TXT',
+				"2001" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_2001_CORE.TXT',
+				"2002" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2002_CORE.TXT',
+				"2003" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2003_CORE.TXT',
+				"2004" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2004_CORE.TXT',
+				"2005" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2005_Core.TXT',
+				"2006" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2006_Core.TXT',
+				"2007" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2007_Core.TXT',
+				"2008" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2008_Core.TXT',
+				"2009" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2009_Core.TXT'
+			)
+		} else if (type =="hospitals")
+		{
+			layouts.uri <- list(
+				'2009' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2009_Hospital.TXT',
+				'2008' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2008_Hospital.TXT',
+				'2007' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2007_Hospital.TXT',
+				'2006' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2006_Hospital.TXT',
+				'2005' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2005_Hospital.TXT',
+				'2004' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2004_HOSPITAL.TXT',
+				'2003' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2003_HOSPITAL.TXT',
+				'2002' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2002_HOSPITAL.TXT',
+				'2001' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_2001_HOSPITAL.TXT',
+				'2000' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_2000_HOSPITAL.TXT',
+				'1999' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_1999_HOSPITALv2.TXT',
+				'1998' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_1999_HOSPITALv2.TXT')
+		} else if (type =="severity")
+		{
+			layouts.uri <- list(
+				'2009' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2009_Severity.TXT',
+				'2008' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2008_Severity.TXT',
+				'2007' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2007_Severity.TXT',
+				'2006' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2006_Severity.TXT',
+				'2005' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2005_Severity.TXT',
+				'2004' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2004_SEVERITY.TXT',
+				'2003' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2003_SEVERITY.TXT',
+				'2002' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2002_SEVERITY.TXT'
+			)
+		} else if (type =="groups")
+		{
+			layouts.uri <- list(
+				'2009' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2009_DX_PR_GRPS.TXT',
+				'2008' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2008_DX_PR_GRPS.TXT',
+				'2007' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2007_Dx_Pr_Grps.TXT',
+				'2006' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2006_Dx_Pr_Grps.TXT',
+				'2005' = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2005_Dx_Pr_Grps.TXT'
+			)
+		}
+	}
+	
+	layouts.connection <- list()
+	layouts <- list()
+	for (i in years)
+	{
+		layouts.connection[[as.character(i)]] <- file(layouts.uri[[as.character(i)]])
+		if (type == "core")
+		{
+			if (i <= 2002)
+			{
+				layouts[[as.character(i)]] <- read.fwf(layouts.connection[[as.character(i)]], 
+					widths = c(-30, 19, -1, 3, -1, 3), skip = 20, strip.white = T, as.is = T,
+					col.names = c("variable", "start", "end"))
+			} else
+			{
+				layouts[[as.character(i)]] <- read.fwf(layouts.connection[[as.character(i)]], 
+					widths = c(-30, 29, -1, 3, -1, 3), skip = 20, strip.white = T, as.is = T,
+					col.names = c("variable", "start", "end"))
+			}
+		} else if (type == "hospitals")
+		{
+			if (i <= 1999)
+			{
+				layouts[[as.character(i)]] <- read.fwf(layouts.connection[[as.character(i)]], 
+					widths = c(-22, 19, -1, 3, -1, 3), skip = 20, strip.white = T, as.is = T,
+					col.names = c("variable", "start", "end"))
+			} else if (i <= 2002)
+			{
+				layouts[[as.character(i)]] <- read.fwf(layouts.connection[[as.character(i)]], 
+					widths = c(-30, 19, -1, 3, -1, 3), skip = 20, strip.white = T, as.is = T,
+					col.names = c("variable", "start", "end"))
+			} else
+			{
+				layouts[[as.character(i)]] <- read.fwf(layouts.connection[[as.character(i)]], 
+					widths = c(-30, 29, -1, 3, -1, 3), skip = 20, strip.white = T, as.is = T,
+					col.names = c("variable", "start", "end"))
+			}
+		} else if (type == "severity")
+		{
+			if (i < 2002)
+			{
+				print("Severity Measures File was not included in the Nationwide Inpatient Sample prior to 2002.")
+				break()
+			} else
+			{
+				layouts[[as.character(i)]] <- read.fwf(layouts.connection[[as.character(i)]], 
+					widths = c(-30, 29, -1, 3, -1, 3), skip = 20, strip.white = T, as.is = T,
+					col.names = c("variable", "start", "end"))
+			}
+		} else if (type == "groups")
+		{
+			if (i < 2005)
+			{
+				print("Diagnosis and Procedure Groups file was not included in the Nationwide Inpatient Sample prior to 2005.")
+				break()
+			} else
+			{
+				layouts[[as.character(i)]] <- read.fwf(layouts.connection[[as.character(i)]], 
+					widths = c(-30, 29, -1, 3, -1, 3), skip = 20, strip.white = T, as.is = T,
+					col.names = c("variable", "start", "end"))
+			}
+		}
+		
+	}
+	
+	## Return layouts
+	return(layouts)
+}
+
+
+## Get unique names of all variables
+uniqueVariables <- function(x)
+{
+	result <- vector()
+	for (i in x)
+	{
+		result <- append(result, i$variable)
+	}
+	result <- unique(result)
+	return(result)
+}
+
+
+## Find variables from past years not included in most recent year,
+## and add them to most recent year
+addVariables <- function(layouts, years)
+{
+	## Find variables from previous years not included in most recent year's layout
+	variables.unique <- uniqueVariables(layouts)
+	variables.missing <- variables.unique[which(!variables.unique %in% 
+				layouts[[as.character(max(years))]][,1])]
+	
+	## Add missing variables to most recent year's layout
+	variables.additional <- matrix(nrow = length(variables.missing),
+		ncol = 3)
+	variables.additional <- as.data.frame(variables.additional)
+	variables.additional[1] <- variables.missing
+	names(variables.additional) <- names(layouts[[as.character(max(years))]])
+	layouts[[as.character(max(years))]] <- rbind(layouts[[as.character(max(years))]],
+		variables.additional)
+	
+	return(layouts)
+	
+}
+
+
+## Rename variables to match 2009 layout
+renameVariables <- function(layouts, old, new)
+{
+	for (i in 1:length(old))
+	{
+		layouts <- lapply(layouts, function(x)
+			{
+				y <- which(x$variable == old[i])
+				if (length(y) > 0)
+				{
+					x$variable[y] <- new[i]
+					return(x)
+				} else
+				{
+					return(x)
+				}
+			})	
+	}
+	return(layouts)
+}
+
+
+## Merge layouts to single data frame
+mergeLayouts <- function(layouts)
+{
+	result <- layouts[[1]]
+	
+	if (length(layouts) > 1)
+	{
+		for (i in 2:length(layouts))
+		{
+			result <- merge(result, layouts[[i]], by = "variable", 
+				all.x = T, all.y = F, suffixes = c("", paste(".", names(layouts)[i], sep= "")))
+		}
+	}
+	
+	names(result)[c(2,3)] <- c(paste("start.", names(layouts)[1], sep = ""), paste("end.", names(layouts)[1], sep = ""))
+	
+	return(result)
+}
+
+
+## Clean layouts by removing duplicated variables and, optionally, capitalization
+cleanLayouts <- function(layouts, remove.capitalization = T)
+{
+	# Remove rows that are all NA due to renaming of variables above
+	rows.to.remove <- apply(layouts[-1], 1, function(x)
+		{
+			all(is.na(x))
+		})
+	layouts <- subset(layouts, !rows.to.remove)
+	
+	# Convert variables to lower case
+	if (remove.capitalization)
+	{
+		layouts$variable <- tolower(layouts$variable)
+	}
+	
+	return(layouts)		
+}
+
+
+## SQL data infile query generator function for single year
+makeInfileQuery <- function(year, file, db.table, layouts)
+{
+	result <- paste("LOAD DATA LOCAL INFILE '", file, "' INTO TABLE ", db.table, " (@var1) SET ", sep="")
+	
+	columns <- grep(year, names(layouts))
+	
+	layouts <- subset(layouts, !is.na(layouts[,columns[1]]))
+	
+	for(i in 1:(nrow(layouts)-1))
+	{
+		temp.var <- layouts[i,1]
+		temp.start <- layouts[i,columns[1]]
+		temp.end <- layouts[i,columns[2]]
+		temp.length <- temp.end - temp.start + 1
+		result <- paste(result, "`", temp.var, "` = substr(@var1, ", temp.start, ", ", temp.length, "), ", sep="")
+	}
+	
+	j <- nrow(layouts)
+	temp.var <- layouts[j,1]
+	temp.start <- layouts[j,columns[1]]
+	temp.end <- layouts[j,columns[2]]  
+	temp.length <- temp.end - temp.start + 1
+	result <- paste(result, "`", temp.var, "` = substr(@var1, ", temp.start, ", ", temp.length, "); ", sep="")
+	
+	return(result)
+}
+
+
+## SQL data infile query generator function for multiple years
+makeInfileQueries <- function(years, files, db.table, layouts)
+{
+	result <- vector()
+	for (i in 1:length(years))
+	{
+		result[i] <- makeInfileQuery(year = years[i], file = files[i], 
+			db.table = db.table, layouts = layouts)
+	}
+	
+	result <- paste(result, collapse = "\r")
+	return(result)
+}
+
+
+
+
+## Generate creat table SQL
+makeTableQuery <- function(layouts, db.table)
+{
+	variables <- layouts[1]
+	locations <- layouts[-1]
+	chars <- matrix(ncol = ncol(locations) / 2, nrow = nrow(locations))
+	for (i in 1:ncol(chars))
+	{
+		chars[,i] <- locations[[2 * i]] - locations[[(2 * i) - 1]] + 1
+	}
+	
+	maxima <- apply(chars, 1, function(x)
+		{
+			max(x, na.rm = TRUE)
+		})
+	
+	variables.maxima <- data.frame(variables, as.character(maxima))
+	
+	result <- apply(variables.maxima, 1, function(x)
+		{
+			paste(x[1], " varchar (", x[2], ")", sep = "")
+		})
+	result <- paste(result, collapse = ",\n")
+	result <- paste("create table ", db.table, " (\n", result, "\n);", sep="")
+	return(result)
+}
+
+
+
+
+
+
