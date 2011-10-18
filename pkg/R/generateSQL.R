@@ -1,12 +1,64 @@
-###############################
-## Use NIS layout files from ##
-## HCUP to contruct MySQL    ##
-## data load queries         ##
-## and creat table queries   ##
-## jthetzel@gmail.com        ##
-###############################
+#' Tools for working with data from the Nationwide Inpatient Sample
+#' @name nis-package
+#' @docType package
+NULL 
 
-## Generate SQL code to convert NIS ascii flat files to SQL database	
+#' Generate SQL code to convert NIS ascii flat files to SQL database 
+#' 
+#' The \code{generateSQL} function is a convenience function that returns
+#' SQL code to be used for creating appropriate tables for a MySQL
+#' database and loading data from the flat ascii files provided by HCUP. 
+#' 
+#' @param years A vector containing the years of data to include. 
+#' 	The order of \code{years} must be the same as file locations
+#' 	provided in the \code{files} parameter.  Currently, only years
+#' 	1998 through 2009 are supported.
+#' @param files A vector containing the file locations of the ascii flat
+#' 	files.  The order of \code{files} must be the same as the years
+#' 	provided by the \code{years} parameter.
+#' @param type The type of NIS data being loaded.  Acceptable values are
+#' 	\code{"core"}, \code{"hospitals"}, \code{"severity"}, and 
+#' 	\code{"groups"}, for the NIS Core, Hospitals, Severity, and 
+#' 	Dx Pr Groups data files, respectively.
+#' @param remove.capitalization optional A logical indicating whether the variable
+#' 	names should be converted to all lower case. Default is \code{TRUE}.
+#' @param db.table optional A character indicating the desired database table name.
+#' 	If not specified, will default to the \code{type} parameter (i.e.
+#' 	core, hospitals, severity, or groups)
+#' @param layouts.uri optional A list specifying the uris to use to fetch the layouts
+#' 	of the ascii flat files. This should usually not be specified,
+#' 	in which case the default uris are used, as listed in details below.
+#' @param old optional A vector of variable names to be replaced by \code{new}. 
+#' Must be in the same order as the \code{new} parameter.
+#' @param new optional A vector of new variable names to replace those specified
+#' 	in \code{old}. Must be in the same order as the \code{old} parameter.
+#' @return A list of two character vectors:
+#' 	\item{createTable}{A SQL statement to create an empty table with
+#' 		with variables appropriate for NIS data.}
+#' 	\item{loadData}{One or more SQL statements to load data from the
+#' 		specified \code{files} into a MySQL table using the 
+#' 		\code{load data infile} SQL statement.
+#' @section Details: Unless \code{layouts.uri} is specified, \code{generateSQL}
+#' 	uses the parses layout information from the NIS website to determine
+#' 	the appropriate variable names and fixed-width locations of data
+#' 	in the NIS ascii flat files. By default, the \code{layouts.uri} object is
+#'  	the following list:
+#' 	\code{layouts.uri <- list(
+#'				"1998" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_1998_COREv2.TXT',
+#'				"1999" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_1999_COREv2.TXT',
+#'				"2000" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_2000_CORE.TXT',
+#'				"2001" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/NIS_2001_CORE.TXT',
+#'				"2002" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2002_CORE.TXT',
+#'				"2003" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2003_CORE.TXT',
+#'				"2004" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2004_CORE.TXT',
+#'				"2005" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2005_Core.TXT',
+#'				"2006" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2006_Core.TXT',
+#'				"2007" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2007_Core.TXT',
+#'				"2008" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2008_Core.TXT',
+#'				"2009" = 'http://www.hcup-us.ahrq.gov/db/nation/nis/tools/stats/FileSpecifications_NIS_2009_Core.TXT'
+#'			)}
+#' @example examples/generateSQL.R
+#' @example 
 generateSQL <- function(years, files, type, remove.capitalization = T, 
 	db.table = NULL, layouts.uri = NULL, old = NULL, new = NULL)
 {
