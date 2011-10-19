@@ -32,6 +32,17 @@ NULL
 #' Must be in the same order as the \code{new} parameter.
 #' @param new optional A vector of new variable names to replace those specified
 #' 	in \code{old}. Must be in the same order as the \code{old} parameter.
+#' @param normalize.dx Logical indicting whether to provide additional SQL statements
+#' 	to normalize the diagnosis (dx1, dx2, etc.) variables into a sperate table.
+#' 	Default is \code{FALSE}.
+#' @param normalize.pr Logical indicting whether to provide additional SQL statements
+#' 	to normalize the procedure (pr1, pr2, etc.) variables into a sperate table.
+#' 	Default is \code{FALSE}.
+#' @param names Character vector giving names for the three columns of the normalized
+#' 	diagnosis and procedure tables. Only applicable if \code{normalize.dx} or
+#' 	\code{normalize.pr} are \code{TRUE}. Default is NULL, in which case the columns
+#' 	are named "keyid", "icd9", and "variable", for the record number, ICD9 code,
+#' 	and variable name (i.e. dx1 or dx2), respectively.
 #' @return A list of two character vectors:
 #' 	\item{createTable}{A SQL statement to create an empty table with
 #' 		with variables appropriate for NIS data.}
@@ -61,30 +72,9 @@ NULL
 #' @references http://www.hcup-us.ahrq.gov/nisoverview.jsp
 #' @export
 generateSQL <- function(years, files, type, remove.capitalization = T, 
-	db.table = NULL, layouts.uri = NULL, old = NULL, new = NULL)
+	db.table = NULL, layouts.uri = NULL, old = NULL, new = NULL,
+	normalize.dx = F, normalize.pr = F, names = NULL)
 {
-	## If old or new are not specified, use default
-	## KEY is changed to KEYID because KEY is a reserved name in MySQL
-	if (is.null(old) | is.null(new))
-	{
-		if (type == "core")
-		{
-			old <- c("KEY", "ZIPInc_Qrtl")
-			new <- c("KEYID","ZIPINC_QRTL")
-		} else if (type == "hospitals")
-		{
-			old <- c()
-			new <- c()
-		}  else if (type == "severity")
-		{
-			old <- c("KEY")
-			new <- c("KEYID")
-		}  else if (type == "groups")
-		{
-			old <- c("KEY")
-			new <- c("KEYID")
-		}
-	}
 	
 	## If db.table is not specified, use default
 	if (is.null(db.table))
@@ -112,7 +102,7 @@ generateSQL <- function(years, files, type, remove.capitalization = T,
 	layouts <- addVariables(layouts = layouts, years = years)
 	
 	## Replace old variable names with new variable names
-	layouts <- renameVariables(layouts = layouts, old = old, new = new)
+	layouts <- renameVariables(layouts = layouts, type = type, old = old, new = new)
 	
 	## Merge layouts into single table
 	layouts <- mergeLayouts(layouts)
@@ -125,6 +115,36 @@ generateSQL <- function(years, files, type, remove.capitalization = T,
 	
 	## Generate data infile SQL
 	loadData <- makeInfileQueries(years = years, files = files, db.table = db.table, layouts = layouts)
+	
+	## Generate create table SQL for normalized tables
+	if (normalize.dx | normalize.pr)
+	{
+		if (is.null(names))
+		{
+			keyid <- grep("^key", layouts$variable, ignore.case = T, value = T)
+			names <- c(keyid, "icd9", "variable")
+		}
+		if (normalize.dx)
+		{
+			createTableNormalized <- makeTableQueryNormalized(layouts = layouts, names = names, 
+				db.table = "dx", pattern = "^dx[[:digit:]]+")
+			createTable <- paste(c(createTable, createTableNormalized), collapse = "\r\r")
+		}
+		if (normalize.pr)
+		{
+			createTableNormalized <- makeTableQueryNormalized(layouts = layouts, names = names, 
+				db.table = "pr", pattern = "^pr[[:digit:]]+")
+			createTable <- paste(c(createTable, createTableNormalized), collapse = "\r\r")
+		}
+	}
+	
+	## Generate data infile SQL for normalization
+	if (normalize.dx | normalize.pr)
+	{
+		loadDataNormalized <- makeInfileQueriesNormalized(years = years, files = files, layouts = layouts, 
+			names = names, normalize.dx = normalize.dx, normalize.pr = normalize.pr)
+		loadData <- paste(c(loadData, loadDataNormalized), collapse = "\r\r")
+	}
 	
 	## Return result
 	result <- list(createTable = createTable, loadData = loadData)
@@ -299,8 +319,31 @@ addVariables <- function(layouts, years)
 
 
 ## Rename variables to match 2009 layout
-renameVariables <- function(layouts, old, new)
+renameVariables <- function(layouts, type, old = NULL, new = NULL)
 {
+	## If old or new are not specified, use default
+	## KEY is changed to KEYID because KEY is a reserved name in MySQL
+	if (is.null(old) | is.null(new))
+	{
+		if (type == "core")
+		{
+			old <- c("KEY", "ZIPInc_Qrtl")
+			new <- c("KEYID","ZIPINC_QRTL")
+		} else if (type == "hospitals")
+		{
+			old <- c()
+			new <- c()
+		}  else if (type == "severity")
+		{
+			old <- c("KEY")
+			new <- c("KEYID")
+		}  else if (type == "groups")
+		{
+			old <- c("KEY")
+			new <- c("KEYID")
+		}
+	}
+	
 	for (i in 1:length(old))
 	{
 		layouts <- lapply(layouts, function(x)
@@ -330,7 +373,7 @@ mergeLayouts <- function(layouts)
 		for (i in 2:length(layouts))
 		{
 			result <- merge(result, layouts[[i]], by = "variable", 
-				all.x = T, all.y = F, suffixes = c("", paste(".", names(layouts)[i], sep= "")))
+				all.x = T, all.y = T, suffixes = c("", paste(".", names(layouts)[i], sep= "")))
 		}
 	}
 	
@@ -432,3 +475,107 @@ makeTableQuery <- function(layouts, db.table)
 	result <- paste("create table ", db.table, " (\n", result, "\n);", sep="")
 	return(result)
 }
+
+
+
+## remember to look into only up to dx15 is showing up
+makeInfileQueryNormalized <- function(year, file, db.table, layouts, pattern, names)
+{
+	row.key <- grep(pattern = "^key", layouts$variable, ignore.case = T, value = F)
+	columns <- layouts[, grep(year, names(layouts))]
+	variable.key<- layouts$variable[row.key]
+	start.key <- columns[row.key, 1]
+	stop.key <- columns[row.key, 2]
+	len.key <- stop.key - start.key + 1
+	
+	rows <- grep(pattern = pattern, layouts$variable, ignore.case = T, value = F)
+	variables <- layouts$variable[rows]
+	start <- columns[rows, 1]
+	stop <- columns[rows, 2]
+	len <- stop - start + 1
+	
+	result <- vector()
+	for (i in 1:length(variables))
+	{
+		result[i] <- paste("LOAD DATA LOCAL INFILE '", file, "' INTO TABLE ", db.table, " (@var1) SET `", variable.key, "` = substr(@var1 ", start.key, ", ", len.key, "), `", names[2], "` = substr(@var1 ", start[i], ", ", len[i], "), SET `", names[3], "` = `", variables[i], "`;", sep = "")
+	}
+	
+	result <- paste(result, collapse = "\r")
+	return(result)	
+}
+
+## Normalize queries
+makeInfileQueriesNormalized <- function(years, files, layouts, names, normalize.dx, normalize.pr)
+{
+	result <- vector()
+	result.dx <- vector()
+	result.pr <- vector()
+	
+	if (normalize.dx)
+	{
+		for (i in 1:length(years))
+		{
+			result.dx[i] <- makeInfileQueryNormalized(year = years[i], file = files[i], db.table = "dx",
+				layouts = layouts, pattern = "^dx[[:digit:]]+", names = names)
+		}
+	}
+	if (normalize.pr)
+	{
+		for (i in 1:length(years))
+		{
+			result.pr[i] <- makeInfileQueryNormalized(year = years[i], file = files[i], db.table = "pr",
+				layouts = layouts, pattern = "^pr[[:digit:]]+", names = names)
+		}
+	}
+	
+	result <- c(result.dx, result.pr)
+	if (length(result > 0))
+	{
+		result <- paste(result, collapse = "\r")
+	} else
+	{
+		result <- NULL
+	}
+	
+	return(result)
+}
+
+
+
+## Generate create table SQL for normalized tables
+makeTableQueryNormalized <- function(layouts, names, db.table, pattern)
+{
+	
+	# Find longest width of variables ofer the years	
+	variables <- layouts[1]
+	locations <- layouts[-1]
+	chars <- matrix(ncol = ncol(locations) / 2, nrow = nrow(locations))
+	for (i in 1:ncol(chars))
+	{
+		chars[,i] <- locations[[2 * i]] - locations[[(2 * i) - 1]] + 1
+	}
+	
+	maxima <- apply(chars, 1, function(x)
+		{
+			max(x, na.rm = TRUE)
+		})
+	
+	variables.maxima <- data.frame(variables, as.numeric(maxima))
+	
+	# Find lengths of columns
+	lengths <- vector()
+	lengths[1] <- max((variables.maxima[grep("^key", variables.maxima$variable, ignore.case = T),2]))	
+	lengths[2] <- max(variables.maxima[grep(pattern, variables.maxima$variable, ignore.case = T), 2])
+	lengths[3] <- max(nchar(grep(pattern, variables.maxima$variable, ignore.case = T, value = T)))
+	
+	# Generate SQL
+	result <- vector()
+	for (i in 1:length(lengths))
+	{
+		result[i] <- paste(names[i], " varchar (", lengths[i], ")", sep = "")
+	}
+	result <- paste(result, collapse = ",\n")
+	result <- paste("create table ", db.table, " (\n", result, "\n);", sep="")
+	return(result)
+}
+

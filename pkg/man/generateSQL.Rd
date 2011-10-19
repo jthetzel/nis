@@ -4,7 +4,7 @@
 \usage{
   generateSQL(years, files, type, remove.capitalization =
   T, db.table = NULL, layouts.uri = NULL, old = NULL, new =
-  NULL)
+  NULL, normalize.dx = F, normalize.pr = F, names = NULL)
 }
 \arguments{
   \item{years}{A vector containing the years of data to
@@ -44,6 +44,24 @@
   \item{new}{optional A vector of new variable names to
   replace those specified in \code{old}. Must be in the
   same order as the \code{old} parameter.}
+
+  \item{normalize.dx}{Logical indicting whether to provide
+  additional SQL statements to normalize the diagnosis
+  (dx1, dx2, etc.) variables into a sperate table. Default
+  is \code{FALSE}.}
+
+  \item{normalize.pr}{Logical indicting whether to provide
+  additional SQL statements to normalize the procedure
+  (pr1, pr2, etc.) variables into a sperate table. Default
+  is \code{FALSE}.}
+
+  \item{names}{Character vector giving names for the three
+  columns of the normalized diagnosis and procedure tables.
+  Only applicable if \code{normalize.dx} or
+  \code{normalize.pr} are \code{TRUE}. Default is NULL, in
+  which case the columns are named "keyid", "icd9", and
+  "variable", for the record number, ICD9 code, and
+  variable name (i.e. dx1 or dx2), respectively.}
 }
 \value{
   A list of two character vectors: \item{createTable}{A SQL
@@ -93,7 +111,6 @@
   )}
 }
 \examples{
-\dontrun{
 ## Create SQL statement to upload NIS Core data from 1998-2009 to MySQL database
 # Years to include
 years <- c(seq(1998, 2009))
@@ -117,9 +134,8 @@ files <- c('/data/nis/NIS_1998_Core.ASC',
 sql.core <- generateSQL(years = years, files = files, type = "core")
 
 # Output SQL statements to a file
-cat(sql.core$createTable, file = "makeTableCore.sql")
-cat(sql.core$uploadData, file = "uploadDataCore.sql")
-}
+#cat(sql.core$createTable, file = "makeTableCore.sql")
+#cat(sql.core$uploadData, file = "uploadDataCore.sql")
 }
 \references{
   http://www.hcup-us.ahrq.gov/nisoverview.jsp

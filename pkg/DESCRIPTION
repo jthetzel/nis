@@ -1,5 +1,5 @@
 Package: nis
-Version: 0.1-0
+Version: 0.1-1
 Date: 2011-10-18
 Title: Nationwide Inpatient Sample tools for R
 Authors@R: person(given = c("Jeremy", "Thoms"), family =

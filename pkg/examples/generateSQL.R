@@ -1,4 +1,3 @@
-\dontrun{
 ## Create SQL statement to upload NIS Core data from 1998-2009 to MySQL database
 # Years to include
 years <- c(seq(1998, 2009))
@@ -22,6 +21,5 @@ files <- c('/data/nis/NIS_1998_Core.ASC',
 sql.core <- generateSQL(years = years, files = files, type = "core")
 
 # Output SQL statements to a file
-cat(sql.core$createTable, file = "makeTableCore.sql")
-cat(sql.core$uploadData, file = "uploadDataCore.sql")
-}
+#cat(sql.core$createTable, file = "makeTableCore.sql")
+#cat(sql.core$uploadData, file = "uploadDataCore.sql")
