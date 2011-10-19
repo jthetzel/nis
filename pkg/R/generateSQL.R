@@ -350,7 +350,7 @@ renameVariables <- function(layouts, type, old = NULL, new = NULL)
 		}
 	}
 	
-	for (i in 1:length(old))
+	for (i in seq(along=old))
 	{
 		layouts <- lapply(layouts, function(x)
 			{
@@ -436,7 +436,7 @@ makeInfileQuery <- function(year, file, db.table, layouts)
 makeInfileQueries <- function(years, files, db.table, layouts)
 {
 	result <- vector()
-	for (i in 1:length(years))
+	for (i in seq(along = years))
 	{
 		result[i] <- makeInfileQuery(year = years[i], file = files[i], 
 			db.table = db.table, layouts = layouts)
@@ -478,7 +478,7 @@ makeTableQuery <- function(layouts, db.table)
 
 
 
-## remember to look into only up to dx15 is showing up
+## Generate SQL for normalized infile query, single year
 makeInfileQueryNormalized <- function(year, file, db.table, layouts, pattern, names)
 {
 	row.key <- grep(pattern = "^key", layouts$variable, ignore.case = T, value = F)
@@ -495,7 +495,7 @@ makeInfileQueryNormalized <- function(year, file, db.table, layouts, pattern, na
 	len <- stop - start + 1
 	
 	result <- vector()
-	for (i in 1:length(variables))
+	for (i in seq(along = variables))
 	{
 		if (!is.na(start[i]))
 		{
@@ -512,7 +512,7 @@ makeInfileQueryNormalized <- function(year, file, db.table, layouts, pattern, na
 	return(result)	
 }
 
-## Normalize queries
+## Generate SQL for normalized infile queries, multiple years
 makeInfileQueriesNormalized <- function(years, files, layouts, names, normalize.dx, normalize.pr)
 {
 	result <- vector()
@@ -521,7 +521,7 @@ makeInfileQueriesNormalized <- function(years, files, layouts, names, normalize.
 	
 	if (normalize.dx)
 	{
-		for (i in 1:length(years))
+		for (i in seq(along = years))
 		{
 			result.dx[i] <- makeInfileQueryNormalized(year = years[i], file = files[i], db.table = "dx",
 				layouts = layouts, pattern = "^dx[[:digit:]]+", names = names)
@@ -529,7 +529,7 @@ makeInfileQueriesNormalized <- function(years, files, layouts, names, normalize.
 	}
 	if (normalize.pr)
 	{
-		for (i in 1:length(years))
+		for (i in seq(along = years))
 		{
 			result.pr[i] <- makeInfileQueryNormalized(year = years[i], file = files[i], db.table = "pr",
 				layouts = layouts, pattern = "^pr[[:digit:]]+", names = names)
@@ -547,7 +547,6 @@ makeInfileQueriesNormalized <- function(years, files, layouts, names, normalize.
 	
 	return(result)
 }
-
 
 
 ## Generate create table SQL for normalized tables
@@ -578,7 +577,7 @@ makeTableQueryNormalized <- function(layouts, names, db.table, pattern)
 	
 	# Generate SQL
 	result <- vector()
-	for (i in 1:length(lengths))
+	for (i in seq(along = lengths))
 	{
 		result[i] <- paste("`", names[i], "` varchar (", lengths[i], ")", sep = "")
 	}
@@ -586,6 +585,7 @@ makeTableQueryNormalized <- function(layouts, names, db.table, pattern)
 	result <- paste("create table `", db.table, "` (\r", result, "\r);", sep="")
 	return(result)
 }
+
 
 ## Remove capitalization
 removeCapitalization <- function(layouts)
