@@ -97,6 +97,12 @@ generateSQL <- function(years, files, type, remove.capitalization = T,
 	## Get layouts from the uri
 	layouts <- getLayouts(layouts.uri = layouts.uri, years = years, type = type)
 	
+	## Remove capitalization
+	if (remove.capitalization)
+	{
+		layouts <- removeCapitalization(layouts)
+	}
+	
 	## Find variables from past years not included in most recent year,
 	## and add them to most recent year 
 	layouts <- addVariables(layouts = layouts, years = years)
@@ -107,8 +113,8 @@ generateSQL <- function(years, files, type, remove.capitalization = T,
 	## Merge layouts into single table
 	layouts <- mergeLayouts(layouts)
 	
-	## Remove duplicated variables and, optionally, capitalization 
-	layouts <- cleanLayouts(layouts, remove.capitalization = remove.capitalization)
+	## Remove duplicated variables 
+	layouts <- cleanLayouts(layouts)
 	
 	## Generate create table SQL
 	createTable <- makeTableQuery(layouts, db.table = db.table)
@@ -327,20 +333,20 @@ renameVariables <- function(layouts, type, old = NULL, new = NULL)
 	{
 		if (type == "core")
 		{
-			old <- c("KEY", "ZIPInc_Qrtl")
-			new <- c("KEYID","ZIPINC_QRTL")
+			old <- c("ZIPInc_Qrtl")
+			new <- c("ZIPINC_QRTL")
 		} else if (type == "hospitals")
 		{
 			old <- c()
 			new <- c()
 		}  else if (type == "severity")
 		{
-			old <- c("KEY")
-			new <- c("KEYID")
+			old <- c()
+			new <- c()
 		}  else if (type == "groups")
 		{
-			old <- c("KEY")
-			new <- c("KEYID")
+			old <- c()
+			new <- c()
 		}
 	}
 	
@@ -384,7 +390,7 @@ mergeLayouts <- function(layouts)
 
 
 ## Clean layouts by removing duplicated variables and, optionally, capitalization
-cleanLayouts <- function(layouts, remove.capitalization = T)
+cleanLayouts <- function(layouts)
 {
 	# Remove rows that are all NA due to renaming of variables above
 	rows.to.remove <- apply(layouts[-1], 1, function(x)
@@ -393,12 +399,6 @@ cleanLayouts <- function(layouts, remove.capitalization = T)
 		})
 	layouts <- subset(layouts, !rows.to.remove)
 	
-	# Convert variables to lower case
-	if (remove.capitalization)
-	{
-		layouts$variable <- tolower(layouts$variable)
-	}
-	
 	return(layouts)		
 }
 
@@ -406,7 +406,7 @@ cleanLayouts <- function(layouts, remove.capitalization = T)
 ## SQL data infile query generator function for single year
 makeInfileQuery <- function(year, file, db.table, layouts)
 {
-	result <- paste("LOAD DATA LOCAL INFILE '", file, "' INTO TABLE ", db.table, " (@var1) SET ", sep="")
+	result <- paste("LOAD DATA LOCAL INFILE '", file, "' INTO TABLE `", db.table, "` (@var1) SET ", sep="")
 	
 	columns <- grep(year, names(layouts))
 	
@@ -469,10 +469,10 @@ makeTableQuery <- function(layouts, db.table)
 	
 	result <- apply(variables.maxima, 1, function(x)
 		{
-			paste(x[1], " varchar (", x[2], ")", sep = "")
+			paste("`", x[1], "` varchar (", x[2], ")", sep = "")
 		})
-	result <- paste(result, collapse = ",\n")
-	result <- paste("create table ", db.table, " (\n", result, "\n);", sep="")
+	result <- paste(result, collapse = ",\r")
+	result <- paste("create table `", db.table, "` (\r", result, "\r);", sep="")
 	return(result)
 }
 
@@ -497,7 +497,7 @@ makeInfileQueryNormalized <- function(year, file, db.table, layouts, pattern, na
 	result <- vector()
 	for (i in 1:length(variables))
 	{
-		result[i] <- paste("LOAD DATA LOCAL INFILE '", file, "' INTO TABLE ", db.table, " (@var1) SET `", variable.key, "` = substr(@var1 ", start.key, ", ", len.key, "), `", names[2], "` = substr(@var1 ", start[i], ", ", len[i], "), SET `", names[3], "` = `", variables[i], "`;", sep = "")
+		result[i] <- paste("LOAD DATA LOCAL INFILE '", file, "' INTO TABLE `", db.table, "` (@var1) SET `", variable.key, "` = substr(@var1, ", start.key, ", ", len.key, "), `", names[2], "` = substr(@var1, ", start[i], ", ", len[i], "), `", names[3], "` = '", variables[i], "';", sep = "")
 	}
 	
 	result <- paste(result, collapse = "\r")
@@ -572,10 +572,20 @@ makeTableQueryNormalized <- function(layouts, names, db.table, pattern)
 	result <- vector()
 	for (i in 1:length(lengths))
 	{
-		result[i] <- paste(names[i], " varchar (", lengths[i], ")", sep = "")
+		result[i] <- paste("`", names[i], "` varchar (", lengths[i], ")", sep = "")
 	}
-	result <- paste(result, collapse = ",\n")
-	result <- paste("create table ", db.table, " (\n", result, "\n);", sep="")
+	result <- paste(result, collapse = ",\r")
+	result <- paste("create table `", db.table, "` (\r", result, "\r);", sep="")
 	return(result)
 }
 
+## Remove capitalization
+removeCapitalization <- function(layouts)
+{
+	layouts <- lapply(layouts, function(x)
+		{
+			x$variable <- tolower(x$variable)
+			return(x)
+		})
+	return(layouts)
+}

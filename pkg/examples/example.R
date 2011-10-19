@@ -1,5 +1,7 @@
 setwd("c:/Users/jthetzel/Research/nis/")
+source("c:/Users/jthetzel/Research/nis/pkg/R/generateSQL.R")
 setwd("/home/jthetzel/Research/nis/example")
+source("generateSQL.R")
 
 ## Specify years
 years <- seq(1998, 2009)
@@ -54,6 +56,9 @@ require(RMySQL)
 drv <- dbDriver('MySQL')
 conn <- dbConnect(drv, group='nis2')
 
-dbSendQuery(conn = conn, statement = )
+dbSendQuery(conn = conn, statement = cat(core$createTable))
+
+
+mysql -u root -p nis2 < createTableCore.sql
 
 
