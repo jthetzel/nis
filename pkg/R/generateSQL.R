@@ -497,10 +497,18 @@ makeInfileQueryNormalized <- function(year, file, db.table, layouts, pattern, na
 	result <- vector()
 	for (i in 1:length(variables))
 	{
-		result[i] <- paste("LOAD DATA LOCAL INFILE '", file, "' INTO TABLE `", db.table, "` (@var1) SET `", variable.key, "` = substr(@var1, ", start.key, ", ", len.key, "), `", names[2], "` = substr(@var1, ", start[i], ", ", len[i], "), `", names[3], "` = '", variables[i], "';", sep = "")
+		if (!is.na(start[i]))
+		{
+			result[i] <- paste("LOAD DATA LOCAL INFILE '", file, "' INTO TABLE `", db.table, "` (@var1) SET `", variable.key, "` = substr(@var1, ", start.key, ", ", len.key, "), `", names[2], "` = substr(@var1, ", start[i], ", ", len[i], "), `", names[3], "` = '", variables[i], "';", sep = "")
+		} else 
+		{
+			result[i] <- ""
+		}
 	}
 	
 	result <- paste(result, collapse = "\r")
+	# Remove empty rows caused by dx16:dx25
+	result <- gsub("\r\r", "", result, ignore.case = T)
 	return(result)	
 }
 
