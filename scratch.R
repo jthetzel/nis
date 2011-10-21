@@ -167,3 +167,16 @@ test <- generateNisSQL(years = seq(1998, 2009), files = files, type = "hospitals
 test <- generateNisSQL(years = seq(2002, 2009), files = files, type = "severity")
 test <- generateNisSQL(years = seq(2005, 2009), files = files, type = "groups")
 
+
+	## Create example data
+	variables <- c("a1", "a2", "b1", "b2", "c1", "c2")
+	dat <- data.frame(matrix(rnorm(70), ncol = 7))
+	names(dat) <- c("Identity", variables)
+	
+	## Create formula
+	formula <- paste(variables[grep("1$", variables)], variables[grep("2$", variables)], sep = ":", collapse = " + ")
+	formula <- paste("Identity ~ ", formula, sep = "")
+	
+	## Run model
+	glm1 <- glm(formula = formula, data = dat)
+	summary(glm1)

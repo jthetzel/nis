@@ -43,6 +43,10 @@ NULL
 #' 	\code{normalize.pr} are \code{TRUE}. Default is NULL, in which case the columns
 #' 	are named "keyid", "icd9", and "variable", for the record number, ICD9 code,
 #' 	and variable name (i.e. dx1 or dx2), respectively.
+#' @param data_type A character specifying the MySQL data_type.  The default is "char", but
+#' 	"varchar" is an appropriate alternative. Theoretically, there are performance tradeoffs
+#' 	between "char" and "varchar", but the practical benefits for the NIS database have
+#' 	not been tested.
 #' @return A list of two character vectors:
 #' 	\item{createTable}{A SQL statement to create an empty table with
 #' 		with variables appropriate for NIS data.}
@@ -73,7 +77,7 @@ NULL
 #' @export
 generateSQL <- function(years, files, type, remove.capitalization = T, 
 	db.table = NULL, layouts.uri = NULL, old = NULL, new = NULL,
-	normalize.dx = F, normalize.pr = F, names = NULL)
+	normalize.dx = F, normalize.pr = F, names = NULL, data_type = "char")
 {
 	
 	## If db.table is not specified, use default
@@ -117,7 +121,7 @@ generateSQL <- function(years, files, type, remove.capitalization = T,
 	layouts <- cleanLayouts(layouts)
 	
 	## Generate create table SQL
-	createTable <- makeTableQuery(layouts, db.table = db.table)
+	createTable <- makeTableQuery(layouts, db.table = db.table, data_type = data_type)
 	
 	## Generate data infile SQL
 	loadData <- makeInfileQueries(years = years, files = files, db.table = db.table, layouts = layouts)
@@ -133,14 +137,14 @@ generateSQL <- function(years, files, type, remove.capitalization = T,
 		if (normalize.dx)
 		{
 			createTableNormalized <- makeTableQueryNormalized(layouts = layouts, names = names, 
-				db.table = "dx", pattern = "^dx[[:digit:]]+")
-			createTable <- paste(c(createTable, createTableNormalized), collapse = "\r\r")
+				db.table = "dx", pattern = "^dx[[:digit:]]+", data_type = data_type)
+			createTable <- paste(c(createTable, createTableNormalized), collapse = "\n\n")
 		}
 		if (normalize.pr)
 		{
 			createTableNormalized <- makeTableQueryNormalized(layouts = layouts, names = names, 
-				db.table = "pr", pattern = "^pr[[:digit:]]+")
-			createTable <- paste(c(createTable, createTableNormalized), collapse = "\r\r")
+				db.table = "pr", pattern = "^pr[[:digit:]]+", data_type = data_type)
+			createTable <- paste(c(createTable, createTableNormalized), collapse = "\n\n")
 		}
 	}
 	
@@ -149,7 +153,7 @@ generateSQL <- function(years, files, type, remove.capitalization = T,
 	{
 		loadDataNormalized <- makeInfileQueriesNormalized(years = years, files = files, layouts = layouts, 
 			names = names, normalize.dx = normalize.dx, normalize.pr = normalize.pr)
-		loadData <- paste(c(loadData, loadDataNormalized), collapse = "\r\r")
+		loadData <- paste(c(loadData, loadDataNormalized), collapse = "\n\n")
 	}
 	
 	## Return result
@@ -442,7 +446,7 @@ makeInfileQueries <- function(years, files, db.table, layouts)
 			db.table = db.table, layouts = layouts)
 	}
 	
-	result <- paste(result, collapse = "\r")
+	result <- paste(result, collapse = "\n")
 	return(result)
 }
 
@@ -450,7 +454,7 @@ makeInfileQueries <- function(years, files, db.table, layouts)
 
 
 ## Generate creat table SQL
-makeTableQuery <- function(layouts, db.table)
+makeTableQuery <- function(layouts, db.table, data_type)
 {
 	variables <- layouts[1]
 	locations <- layouts[-1]
@@ -469,10 +473,10 @@ makeTableQuery <- function(layouts, db.table)
 	
 	result <- apply(variables.maxima, 1, function(x)
 		{
-			paste("`", x[1], "` varchar (", x[2], ")", sep = "")
+			paste("`", x[1], "` ", data_type, " (", x[2], ")", sep = "")
 		})
-	result <- paste(result, collapse = ",\r")
-	result <- paste("create table `", db.table, "` (\r", result, "\r);", sep="")
+	result <- paste(result, collapse = ",\n")
+	result <- paste("create table `", db.table, "` (\n", result, "\n);", sep="")
 	return(result)
 }
 
@@ -506,9 +510,9 @@ makeInfileQueryNormalized <- function(year, file, db.table, layouts, pattern, na
 		}
 	}
 	
-	result <- paste(result, collapse = "\r")
+	result <- paste(result, collapse = "\n")
 	# Remove empty rows caused by dx16:dx25
-	result <- gsub("\r\r", "", result, ignore.case = T)
+	result <- gsub("\n\n", "", result, ignore.case = T)
 	return(result)	
 }
 
@@ -539,7 +543,7 @@ makeInfileQueriesNormalized <- function(years, files, layouts, names, normalize.
 	result <- c(result.dx, result.pr)
 	if (length(result > 0))
 	{
-		result <- paste(result, collapse = "\r")
+		result <- paste(result, collapse = "\n")
 	} else
 	{
 		result <- NULL
@@ -550,7 +554,7 @@ makeInfileQueriesNormalized <- function(years, files, layouts, names, normalize.
 
 
 ## Generate create table SQL for normalized tables
-makeTableQueryNormalized <- function(layouts, names, db.table, pattern)
+makeTableQueryNormalized <- function(layouts, names, db.table, pattern, data_type)
 {
 	
 	# Find longest width of variables ofer the years	
@@ -579,10 +583,10 @@ makeTableQueryNormalized <- function(layouts, names, db.table, pattern)
 	result <- vector()
 	for (i in seq(along = lengths))
 	{
-		result[i] <- paste("`", names[i], "` varchar (", lengths[i], ")", sep = "")
+		result[i] <- paste("`", names[i], "` ", data_type," (", lengths[i], ")", sep = "")
 	}
-	result <- paste(result, collapse = ",\r")
-	result <- paste("create table `", db.table, "` (\r", result, "\r);", sep="")
+	result <- paste(result, collapse = ",\n")
+	result <- paste("create table `", db.table, "` (\n", result, "\n);", sep="")
 	return(result)
 }
 

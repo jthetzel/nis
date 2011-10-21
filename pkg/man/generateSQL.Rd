@@ -4,7 +4,8 @@
 \usage{
   generateSQL(years, files, type, remove.capitalization =
   T, db.table = NULL, layouts.uri = NULL, old = NULL, new =
-  NULL, normalize.dx = F, normalize.pr = F, names = NULL)
+  NULL, normalize.dx = F, normalize.pr = F, names = NULL,
+  data_type = "char")
 }
 \arguments{
   \item{years}{A vector containing the years of data to
@@ -62,6 +63,13 @@
   which case the columns are named "keyid", "icd9", and
   "variable", for the record number, ICD9 code, and
   variable name (i.e. dx1 or dx2), respectively.}
+
+  \item{data_type}{A character specifying the MySQL
+  data_type.  The default is "char", but "varchar" is an
+  appropriate alternative. Theoretically, there are
+  performance tradeoffs between "char" and "varchar", but
+  the practical benefits for the NIS database have not been
+  tested.}
 }
 \value{
   A list of two character vectors: \item{createTable}{A SQL
