@@ -177,128 +177,18 @@ Which can then be executed by \Rcode{\$ mysql -u root -p nis < normalize.sql}. O
   AND dx.`key` = core.`key`;
   
 \section{Indexes}
+Querying a database with a WHERE statement is common for investigators trying to select represenational samples for anlaysis. However, on large databases like the NIS, which contains over 92 million records from 1998 to 2009, such queries can be slow, taking hours or days depending on the query complexity, hardware, and software. Indexing columns that will be frequently queried can significantly increase the speed of such queries. Pertinent columns will depend on the research question. In the `core` table without diagnosis and procedure normalization, for example, the `key`, `age`, and `dx1` through `dx25` and `pr1` through `pr15` columns could be indexed.  If the diagnosis and procedure ICD9 tables are normalized, the `key`, `icd9`, and `variable` in the `dx` and `pr` tables could be indexed instead of the multiple `dx` and `pr` columns in hte `core` table. Such a strategy would significantly increase the speed of selecting patients based on age, ICD9 diagnosis codes, and ICD9 procedure codes. Examples of SQL statements are:
 
+ALTER TABLE `core` ADD PRIMARY KEY(`key`);
+CREATE INDEX `age` on `core` (`age`);
+CREATE INDEX `key` ON `dx` (`key`);
+CREATE INDEX `icd9` ON `dx` (`icd9`);
+CREATE INDEX `variable` ON `dx` (`variable`);
+CREATE INDEX `key` ON `pr` (`key`);
+CREATE INDEX `icd9` ON `pr` (`icd9`);
+CREATE INDEX `variable` ON `pr` (`variable`);
 
-
-
-The probability density function of the generalized trapezoidal distribution with parameters \begin{math}a, b, c, d, m, n, \text{ and } \alpha \end{math} is given by:
-  \begin{displaymath}
-    f{\scriptscriptstyle X}(x\mid\theta) = \mathcal{C}(\Theta) \times
-      \begin{cases}
-        \alpha \left(\frac{x - \alpha}{b - \alpha} \right)^{m - 1}, & \text{for } a \leq x < b \\
-        (1 - \alpha) \left(\frac{x - b}{c - b} \right) + \alpha, & \text{for } b \leq x < c \\
-        \left(\frac{d - x}{d - c} \right)^{n-1}, & \text{for } c \leq x \leq d
-       \end{cases}
-  \end{displaymath}
-
-\noindent with the normalizing constant \begin{math}\mathcal{C}(\Theta)\end{math} defined as:
-  \begin{displaymath}
-    \mathcal{C}(\Theta) = 
-      \frac{2mn}
-        {2 \alpha \left(b - a\right) n + 
-          \left(\alpha + 1 \right) \left(c - b \right)mn +
-          2 \left(d - c \right)m}
-    \end{displaymath} 
-
-\noindent and where the parameter vector \begin{math} \Theta = \{a, b, c, d, m, n, \alpha \}, a \leq b \leq c \leq d, \text{ and } m, n, \alpha >0 \end{math}. 
-
-The \Rpackage{trapezoid} package provides functions for the probability density function (\Rfunction{dtrapezoid}), cumulative distribution function (\Rfunction{ptrapezoid}), quantile function (\Rfunction{qtrapezoid}), and random generation (\Rfunction{rtrapezoid}). The parameters \begin{math}a, b, c, d, m, n, \text{ and } \alpha \end{math} are specified by the arguments \Rcode{min}, \Rcode{mode1}, \Rcode{mode2}, \Rcode{max}, \Rcode{n1}, \Rcode{n3}, and \Rcode{alpha}, respectively. The argument names were chosen to avoid conflicts with names that commonly have specific meaning in R functions, such as \Rcode{c} and \Rcode{n}.
-
-
-
-\section{Examples}
-\subsection{Trapezoid}
-The generalized trapezoidal distribution simplifies to the trapezoidal distribution when \begin{math} m = n = 2 \text{ and } \alpha = 1\end{math}. 
-
-<<trapezoid, echo=TRUE, results=verbatim, fig=TRUE, include=FALSE>>=
-# ggplot2 is required for these examples
-require(trapezoid)
-require(ggplot2)
-
-# Trapezoid
-x <- seq(from = 0, to = 1, by = 0.01)	
-density <- dtrapezoid(x, min = 0, mode1 = 1/3, mode2 = 2/3, max = 1,
-	n1 = 2, n3 = 2, alpha = 1)
-trapezoid <- ggplot(data = data.frame(x, density), 
-		aes(x = x, y = density)) + geom_line() + theme_bw()
-print(trapezoid)
-@
-\begin{figure}[H]
-\centering
-\caption{A trapezoidal distribution.}
-\includegraphics{trapezoid-trapezoid}
-\end{figure}
-
-
-
-\subsection{Triangle}
-The trapezoidal distribution further simplifies to the triangular distribution when \begin{math} b = c\end{math}. 
-
-<<triangle, echo=TRUE, results=verbatim, fig=TRUE, include=FALSE>>=
-# Triangle
-x <- seq(from = 0, to = 1, by = 0.01)	
-density <- dtrapezoid(x, min = 0, mode1 = 1/2, mode2 = 1/2, max = 1,
-	n1 = 2, n3 = 2, alpha = 1)
-triangle <- ggplot(data = data.frame(x, density), 
-				aes(x = x, y = density)) + geom_line() + theme_bw()
-print(triangle)
-@
-\begin{figure}[H]
-\centering
-\caption{A triangular distribution.}
-\includegraphics{trapezoid-triangle}
-\end{figure}
-
-
-\subsection{Generalized trapezoidal distribution}
-Parameters \begin{math}m, n, \text{ and } \alpha \end{math} control the growth rate, decay rate, and boundary ratio, respectively, of the distribution. In the \Rpackage{trapezoid} package, these parameters are controlled by the \Rcode{n1}, \Rcode{n3}, and \Rcode{alpha} arguments. To demonstrate the effects of these three parameters, van Dorp and Kotz\cite{VanDorp2003} generated eight distributions with varying parameter values. The distributions are approximately re-generated here.
-
-<<generalizedTrapezoids, echo=TRUE, results=verbatim, fig=TRUE, include=FALSE, height=8>>=
-# Generalized trapezoidal distributions
-x <- seq(from = 0, to = 1, by = 0.01)	
-
-# Create a lists of arguments, varying n1, n3, and alpha
-arguments <- list()
-arguments[['A']] <- list(x = x, n1 = 2, n3 = 2, alpha = 0.8)
-arguments[['B']] <- list(x = x, n1 = 1.5, n3 = 1.5, alpha = 1)
-arguments[['C']] <- list(x = x, n1 = 2.5, n3 = 2.5, alpha = 1.5)
-arguments[['D']] <- list(x = x, n1 = 1.5, n3 = 2.5, alpha = 0.5)
-arguments[['E']] <- list(x = x, n1 = 2.5, n3 = 1.5, alpha = 1)
-arguments[['F']] <- list(x = x, n1 = 0.5, n3 = 0.5, alpha = 1.5)
-arguments[['G']] <- list(x = x, n1 = 1.5, n3 = 0.5, alpha = 0.5)
-arguments[['H']] <- list(x = x, n1 = 2.5, n3 = 0.5, alpha = 1)
-arguments[['I']] <- list(x = x, n1 = 0.5, n3 = 1.5, alpha = 1.5)
-arguments[['J']] <- list(x = x, n1 = 0.5, n3 = 2.5, alpha = 0.5)
-
-# Calculate the distributions
-plot.data <- ldply(arguments, function(z)
-	{
-		x <- z$x
-		density <- dtrapezoid(x = z$x, min = 0, mode1 = 0.2, mode2 = 0.8,
-			max = 1, n1 = z$n1, n3 = z$n3, alpha = z$alpha)
-		args <- paste("n1 = ", z$n1, ", n3 = ", z$n3, ", alpha = ", z$alpha, 
-			sep="", collapse="")
-		out <- data.frame(x, density, args)
-	})
-
-# Create labels for later use in displaying the arguments on the plots 
-plot.data$label <- paste(plot.data$.id, ": ", plot.data$args, sep="")
-
-# Create plots
-generalizedTrapezoids <- ggplot(data = plot.data, aes(x = x, y = density)) + 
-		geom_line() + theme_bw() + 
-		facet_wrap(~label, ncol = 2, scales = "free_y")
-print(generalizedTrapezoids)
-@
-\begin{figure}[H]
-\centering
-\caption{Examples of generalized trapezoidal distributions.}
-\includegraphics{trapezoid-generalizedTrapezoids}
-\end{figure}
-
-
-\bibliographystyle{plain}
-\bibliography{trapezoid}
+An example SQL script file for index creation can be found here.
 
 \end{document}
 
